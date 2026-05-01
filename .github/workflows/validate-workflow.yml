@@ -1,0 +1,133 @@
+name: Validate n8n Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'workflow.json'
+      - '.github/workflows/validate-workflow.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'workflow.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate workflow.json exists
+        run: |
+          if [ ! -f "workflow.json" ]; then
+            echo "❌ ERROR: workflow.json not found!"
+            exit 1
+          fi
+          echo "✅ workflow.json found"
+
+      - name: Validate JSON syntax
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+          
+          try:
+            with open('workflow.json', 'r') as f:
+              workflow = json.load(f)
+            print("✅ JSON syntax is valid")
+          except json.JSONDecodeError as e:
+            print(f"❌ JSON syntax error: {e}")
+            sys.exit(1)
+          EOF
+
+      - name: Validate workflow structure
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+          
+          with open('workflow.json', 'r') as f:
+            workflow = json.load(f)
+          
+          # Check required fields
+          required_fields = ['nodes', 'connections']
+          for field in required_fields:
+            if field not in workflow:
+              print(f"❌ Missing required field: {field}")
+              sys.exit(1)
+          
+          print("✅ Workflow has required fields: nodes, connections")
+          
+          # Check for critical nodes
+          node_names = [node.get('name') for node in workflow.get('nodes', [])]
+          critical_nodes = ['On form submission', 'Extract from File', 'Send WhatsApp Message']
+          
+          for critical in critical_nodes:
+            if critical not in node_names:
+              print(f"❌ Missing critical node: {critical}")
+              sys.exit(1)
+          
+          print("✅ All critical nodes present")
+          
+          # Validate connections
+          node_ids = {node.get('id'): node.get('name') for node in workflow.get('nodes', [])}
+          connections = workflow.get('connections', {})
+          
+          for source_name, connection in connections.items():
+            if 'main' in connection:
+              for output_idx, targets in enumerate(connection['main']):
+                for target in targets:
+                  if 'node' in target:
+                    target_node = target['node']
+                    # Find if target node exists
+                    target_exists = any(n.get('name') == target_node for n in workflow.get('nodes', []))
+                    if not target_exists:
+                      print(f"❌ Connection references non-existent node: {target_node}")
+                      sys.exit(1)
+          
+          print("✅ All connections reference valid nodes")
+          print(f"✅ Workflow validation passed ({len(workflow['nodes'])} nodes, {len(connections)} connections)")
+          
+          EOF
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ **Workflow validation passed!**\n- JSON syntax valid\n- All required fields present\n- Critical nodes present\n- All connections valid'
+            })
+
+  schema-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check workflow metadata
+        run: |
+          python3 << 'EOF'
+          import json
+          
+          with open('workflow.json', 'r') as f:
+            workflow = json.load(f)
+          
+          meta = workflow.get('meta', {})
+          
+          print("Workflow Metadata:")
+          print(f"  - Instance ID: {'✅ Present' if meta.get('instanceId') else '⚠️ Missing'}")
+          print(f"  - Creds Setup Completed: {'✅ Yes' if meta.get('templateCredsSetupCompleted') else '⚠️ No'}")
+          
+          total_nodes = len(workflow.get('nodes', []))
+          print(f"\nWorkflow Statistics:")
+          print(f"  - Total Nodes: {total_nodes}")
+          print(f"  - Connections: {len(workflow.get('connections', {}))}")
+          
+          EOF

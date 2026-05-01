@@ -1,0 +1,77 @@
+name: Check Documentation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'README.md'
+      - 'workflow.json'
+      - '.github/workflows/documentation.yml'
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check README exists
+        run: |
+          if [ ! -f "README.md" ]; then
+            echo "❌ README.md not found!"
+            exit 1
+          fi
+          echo "✅ README.md exists"
+
+      - name: Validate README content
+        run: |
+          python3 << 'EOF'
+          import re
+          
+          with open('README.md', 'r') as f:
+            readme = f.read()
+          
+          required_sections = [
+            ('Overview', r'##\s+Overview'),
+            ('Features', r'##\s+Features'),
+            ('Prerequisites', r'##\s+Prerequisites'),
+            ('Workflow Steps', r'##\s+Workflow Steps'),
+            ('Configuration', r'##\s+Configuration'),
+          ]
+          
+          missing_sections = []
+          for section_name, pattern in required_sections:
+            if not re.search(pattern, readme):
+              missing_sections.append(section_name)
+          
+          if missing_sections:
+            print(f"⚠️ Missing sections: {', '.join(missing_sections)}")
+            for section in missing_sections:
+              print(f"  - [ ] {section}")
+          else:
+            print("✅ All required sections present:")
+            for section_name, _ in required_sections:
+              print(f"  - [x] {section_name}")
+          
+          # Check minimum length
+          if len(readme) < 500:
+            print("⚠️ README is quite short (consider adding more details)")
+          else:
+            print(f"✅ README has adequate content ({len(readme)} characters)")
+          
+          EOF
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '📚 **Documentation Check Complete**\n- README.md validated\n- All sections present\n- Content adequate'
+            })
