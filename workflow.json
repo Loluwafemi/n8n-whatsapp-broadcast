@@ -1,0 +1,285 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary",
+              "name": "summary",
+              "value": "={{ \"Broadcast completed. Total messages sent: \" + $input.all().length }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "623929d4-4681-4b07-a70a-b384848a1f15",
+      "name": "Broadcast Complete",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        752,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "1107658945763178",
+        "recipientPhoneNumber": "={{ $json.Phone }}",
+        "textBody": "=Hello {{ $json[\"Business Name\"] }}, You are hereby invited to stillwater program church at our new branch at Ibara, Abeokuta, Ogun state",
+        "additionalFields": {}
+      },
+      "id": "372ba58c-b6c3-40b7-9526-ee7954b7fa8f",
+      "name": "Send WhatsApp Message",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        752,
+        208
+      ],
+      "webhookId": "cb2fca47-606b-4bcc-ab01-3687b0d4e4ff"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        160
+      ],
+      "id": "ec4bbd54-2eb4-42d8-850b-ddacdf4e7b96",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "formTitle": "Select Contact",
+        "formDescription": "Select excel file containing names and numbers of recipients. ",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel File",
+              "fieldType": "file",
+              "fieldName": "data",
+              "acceptFileTypes": ".xlsx"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Select"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -144,
+        160
+      ],
+      "id": "4809cd85-2b10-42f5-adef-ef02f1e9d122",
+      "name": "On form submission",
+      "webhookId": "1e6d0ea0-cf53-4422-9345-77d19e706b34"
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        528,
+        160
+      ],
+      "id": "c5fd5519-e624-46ad-b8ae-1e7cbb38f772",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "Phone",
+        "options": {}
+      },
+      "id": "a3903ce0-e189-4ff9-bccf-587008a5dffe",
+      "name": "Remove Duplicate Numbers",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📥 Input Stage\n\nCollects Excel file with contact data via form.\n\n**Expected columns (strict):**\n- name\n- number",
+        "height": 384,
+        "color": 4
+      },
+      "id": "3c47817e-d469-49d8-a732-0875971e54d7",
+      "name": "Sticky Note 083bf232",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔄 Data Processing\n\n1. **Extract**: Parse Excel file to JSON\n2. **Deduplicate**: Remove duplicate contacts\n3. **Batch**: Process contacts in groups of 50",
+        "height": 384,
+        "width": 384,
+        "color": 5
+      },
+      "id": "a6639246-d80d-4b12-97c4-199bcf6a72c3",
+      "name": "Sticky Note c2878d26",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        64,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🔁 Batch Loop\n\nProcesses contacts in batches of 50 to:\n- Avoid rate limits\n- Improve reliability\n- Enable progress tracking\n\nEach contact is sent exactly once.",
+        "height": 496,
+        "color": 6
+      },
+      "id": "cfbc26b9-cf45-456f-a0b7-31a351dd0938",
+      "name": "Sticky Note c1a7ca98",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ✅ Completion\n\nSummary of broadcast results.\n\n**Done path**: All batches processed\n**Each batch path**: Send messages and loop back",
+        "height": 304,
+        "width": 336,
+        "color": 3
+      },
+      "id": "ab17aada-fba8-43d9-a8fa-531d2c5753e6",
+      "name": "Sticky Note ddb42872",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 📱 WhatsApp Broadcast\n\n**Message personalization:**\n- Uses Business Name from Excel\n- Sends to Phone number from Excel\n\n**Deduplication:**\n- Remove Duplicates node ensures no number receives message twice\n\n**Credentials:**\n- Requires WhatsApp Business API setup\n- Phone Number ID must match your WhatsApp Business account",
+        "height": 352,
+        "width": 464,
+        "color": 2
+      },
+      "id": "7971d181-4027-479d-9b16-22bae2840ec4",
+      "name": "Sticky Note 3f38ff95",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# 📢 WhatsApp Broadcast Workflow\n\n**Purpose:** Send personalized WhatsApp messages to contacts from Excel file\n\n**Flow:**\n1. Upload Excel file via form\n2. Extract contact data (Business Name, Phone)\n3. Remove duplicate phone numbers\n4. Process in batches of 50\n5. Send personalized WhatsApp message to each contact\n6. Return completion summary\n\n**Key Features:**\n✓ No duplicate messages (deduplication by phone number)\n✓ Personalized with business name\n✓ Batch processing for reliability\n✓ Progress tracking\n\n\nFor custom modification, or upgrade\nContact: \nhandssistance@gmail.com\n## or\nshokefunfemi@gmail.com",
+        "height": 528,
+        "width": 1248,
+        "color": 7
+      },
+      "id": "917b1bf0-17d1-4e97-909b-fdae25212993",
+      "name": "Sticky Note 7d93ff9d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        -640
+      ]
+    }
+  ],
+  "connections": {
+    "Broadcast Complete": {
+      "main": [
+        []
+      ]
+    },
+    "Send WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Broadcast Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Numbers": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "186051534d8b4061b51a73ccdb0d6c7469288bb91f320e8f68ae6e36a77e100f"
+  }
+}
