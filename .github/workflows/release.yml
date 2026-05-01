@@ -10,100 +10,74 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+    if: "!contains(github.event.head_commit.message, '[no-release]')"
+    permissions:
+      contents: write
+      releases: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest tag
-        id: get_tag
+      - name: Get current version
+        id: version
         run: |
-          # Get the latest tag, or default to v1.0.0
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-          echo "Current tag: $LATEST_TAG"
+          # Generate version based on date
+          VERSION=$(date +'%Y.%m.%d')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "📦 Release version: ${VERSION}"
 
-      - name: Generate next version
-        id: next_version
+      - name: Check if tag exists
+        id: check_tag
+        continue-on-error: true
         run: |
-          LATEST_TAG=${{ steps.get_tag.outputs.latest_tag }}
-          # Remove 'v' prefix
-          VERSION=${LATEST_TAG#v}
-          
-          # Split version into parts
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          
-          # Increment patch version
-          PATCH=$((PATCH + 1))
-          NEXT_VERSION="v$MAJOR.$MINOR.$PATCH"
-          
-          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-          echo "Next version: $NEXT_VERSION"
-
-      - name: Check for [no-release] in commit message
-        id: check_skip
-        run: |
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          if echo "$COMMIT_MESSAGE" | grep -q "\[no-release\]"; then
-            echo "skip_release=true" >> $GITHUB_OUTPUT
-            echo "⏭️ Release skipped - [no-release] found in commit message"
-          else
-            echo "skip_release=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get commit info
-        id: commit_info
-        if: steps.check_skip.outputs.skip_release == 'false'
-        run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          COMMIT_AUTHOR=$(git log -1 --pretty=%an)
-          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          
-          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
-          echo "commit_author=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
-          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+          git fetch --tags
+          git rev-parse ${{ steps.version.outputs.tag }}
+          echo "tag_exists=true" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        if: steps.check_skip.outputs.skip_release == 'false'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.check_tag.outcome == 'failure'
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.next_version.outputs.next_version }}
-          release_name: "Release ${{ steps.next_version.outputs.next_version }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "n8n WhatsApp Broadcast - ${{ steps.version.outputs.version }}"
           body: |
-            ## WhatsApp Broadcast Workflow - ${{ steps.next_version.outputs.next_version }}
+            # n8n WhatsApp Broadcast Workflow Release
             
-            **Commit**: ${{ steps.commit_info.outputs.commit_hash }}
-            **Author**: ${{ steps.commit_info.outputs.commit_author }}
+            **Version:** ${{ steps.version.outputs.version }}
+            **Released:** ${{ github.event.head_commit.timestamp }}
+            **Commit:** ${{ github.event.head_commit.id }}
             
-            ### Changes
-            ${{ steps.commit_info.outputs.commit_message }}
+            ## What's Included
+            - ✅ Complete n8n workflow for WhatsApp broadcasting
+            - ✅ Support for Excel file imports
+            - ✅ Automatic deduplication of contacts
+            - ✅ Batch processing (50 contacts per batch)
+            - ✅ Personalized messaging
             
-            ### What's included
-            - ✅ n8n Workflow configuration
-            - ✅ README documentation
-            - ✅ GitHub Actions workflows
+            ## Quick Start
+            1. Import the `workflow.json` into your n8n instance
+            2. Configure WhatsApp Business Phone Number ID
+            3. Upload Excel file with Business Name and Phone columns
+            4. Run the workflow
             
-            ### Setup Instructions
-            1. Import `workflow.json` into n8n
-            2. Configure WhatsApp Phone Number ID
-            3. Set up WhatsApp Business Account credentials
-            4. Upload Excel file with contacts (Business Name, Phone columns)
-            5. Run the workflow
+            ## Documentation
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for complete documentation.
             
-            **For support**: handssistance@gmail.com or shokefunfemi@gmail.com
+            ## Support
+            - Email: handssistance@gmail.com
+            - Email: shokefunfemi@gmail.com
+            
           draft: false
           prerelease: false
+          files: |
+            workflow.json
+            README.md
 
-      - name: Release Created
-        if: steps.check_skip.outputs.skip_release == 'false'
+      - name: Release already exists
+        if: steps.check_tag.outcome == 'success'
         run: |
-          echo "🎉 Release ${{ steps.next_version.outputs.next_version }} created successfully!"
-
-      - name: Release Skipped
-        if: steps.check_skip.outputs.skip_release == 'true'
-        run: |
-          echo "ℹ️ Release creation skipped"
+          echo "ℹ️ Release ${{ steps.version.outputs.tag }} already exists. Skipping creation."
