@@ -193,7 +193,7 @@
     },
     {
       "parameters": {
-        "content": "# 📢 WhatsApp Broadcast Workflow\n\n**Purpose:** Send personalized WhatsApp messages to contacts from Excel file\n\n**Flow:**\n1. Upload Excel file via form\n2. Extract contact data (Business Name, Phone)\n3. Remove duplicate phone numbers\n4. Process in batches of 50\n5. Send personalized WhatsApp message to each contact\n6. Return completion summary\n\n**Key Features:**\n✓ No duplicate messages (deduplication by phone number)\n✓ Personalized with business name\n✓ Batch processing for reliability\n✓ Progress tracking\n\n\nFor custom modification, or upgrade\nContact: \nhandssistance@gmail.com\n## or\nshokefunfemi@gmail.com",
+        "content": "# 📢  WhatsApp Broadcast Workflow\n\n**Purpose:** Send personalized WhatsApp messages to contacts from Excel file\n\n**Flow:**\n1. Upload Excel file via form\n2. Extract contact data (Business Name, Phone)\n3. Remove duplicate phone numbers\n4. Process in batches of 50\n5. Send personalized WhatsApp message to each contact\n6. Return completion summary\n\n**Key Features:**\n✓ No duplicate messages (deduplication by phone number)\n✓ Personalized with business name\n✓ Batch processing for reliability\n✓ Progress tracking\n\n\nFor custom modification, or upgrade\nContact: \nhandssistance@gmail.com\n## or\nshokefunfemi@gmail.com",
         "height": 528,
         "width": 1248,
         "color": 7
