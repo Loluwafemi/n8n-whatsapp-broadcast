@@ -1,4 +1,4 @@
-name: Check Documentation
+name: Documentation Check
 
 on:
   push:
@@ -6,61 +6,91 @@ on:
     paths:
       - 'README.md'
       - 'workflow.json'
-      - '.github/workflows/documentation.yml'
   pull_request:
     branches: [ main, develop ]
 
 jobs:
-  documentation:
+  check-docs:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Check README exists
+      - name: Validate README.md exists
         run: |
           if [ ! -f "README.md" ]; then
-            echo "❌ README.md not found!"
+            echo "❌ README.md not found"
             exit 1
           fi
-          echo "✅ README.md exists"
+          echo "✅ README.md found"
 
-      - name: Validate README content
+      - name: Fix file encoding
+        run: |
+          # Convert file to UTF-8 without BOM
+          file README.md
+          iconv -f UTF-16 -t UTF-8 README.md > README.md.tmp 2>/dev/null || iconv -f UTF-8 -t UTF-8 README.md > README.md.tmp 2>/dev/null || cp README.md README.md.tmp
+          mv README.md.tmp README.md
+          echo "✅ File encoding normalized"
+
+      - name: Validate README sections
         run: |
           python3 << 'EOF'
-          import re
+          import sys
           
-          with open('README.md', 'r', encoding='utf-8-sig') as f:
-            readme = f.read()
+          # Read file with binary mode and decode with error handling
+          try:
+            with open('README.md', 'rb') as f:
+              content_bytes = f.read()
+            
+            # Try different encodings
+            content = None
+            for encoding in ['utf-8', 'utf-8-sig', 'iso-8859-1', 'cp1252']:
+              try:
+                content = content_bytes.decode(encoding)
+                print(f"✅ File decoded as: {encoding}")
+                break
+              except:
+                continue
+            
+            if content is None:
+              # Last resort: decode with errors='ignore'
+              content = content_bytes.decode('utf-8', errors='ignore')
+              print("⚠️ File decoded with error handling")
           
+          except Exception as e:
+            print(f"❌ Error reading README.md: {e}")
+            sys.exit(1)
+          
+          # Check required sections
           required_sections = [
-            ('Overview', r'##\s+Overview'),
-            ('Features', r'##\s+Features'),
-            ('Prerequisites', r'##\s+Prerequisites'),
-            ('Workflow Steps', r'##\s+Workflow Steps'),
-            ('Configuration', r'##\s+Configuration'),
+            'WhatsApp Broadcast',
+            'Overview',
+            'Features',
+            'Prerequisites',
+            'Workflow Steps',
+            'Configuration'
           ]
           
           missing_sections = []
-          for section_name, pattern in required_sections:
-            if not re.search(pattern, readme):
-              missing_sections.append(section_name)
+          for section in required_sections:
+            if section.lower() not in content.lower():
+              missing_sections.append(section)
           
           if missing_sections:
-            print(f"⚠️ Missing sections: {', '.join(missing_sections)}")
+            print("❌ Missing sections:")
             for section in missing_sections:
-              print(f"  - [ ] {section}")
-          else:
-            print("✅ All required sections present:")
-            for section_name, _ in required_sections:
-              print(f"  - [x] {section_name}")
+              print(f"  - {section}")
+            sys.exit(1)
           
-          # Check minimum length
-          if len(readme) < 500:
-            print("⚠️ README is quite short (consider adding more details)")
-          else:
-            print(f"✅ README has adequate content ({len(readme)} characters)")
+          # Check minimum content length
+          if len(content) < 300:
+            print(f"❌ README.md too short ({len(content)} chars, minimum 300)")
+            sys.exit(1)
+          
+          print("✅ README.md validation passed!")
+          print(f"   - All required sections present")
+          print(f"   - Content length: {len(content)} characters")
           
           EOF
 
@@ -73,5 +103,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '📚 **Documentation Check Complete**\n- README.md validated\n- All sections present\n- Content adequate'
+              body: '✅ **Documentation validation passed!**\n- README.md present\n- All required sections included\n- Adequate content length'
             })
